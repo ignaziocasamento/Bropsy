@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bropsy"
+version = "0.1.0"
+description = "Local source and citation tooling for an agent-maintained LLM wiki"
+requires-python = ">=3.11"
+dependencies = ["pypdf>=5,<7"]
+
+[project.scripts]
+bropsy = "bropsy.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["bropsy*"]

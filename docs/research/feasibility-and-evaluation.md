@@ -1,0 +1,51 @@
+# Feasibility and evaluation of a real-data-to-synthetic-data agent
+
+Research date: 2026-11-24. Status: research plan, not a validated system. This note separates **source claims** from **design inferences**. It concerns three distinct products that need separate success criteria.
+
+## Feasibility by product
+
+| Product | Source-backed feasibility | Design inference and limit |
+| --- | --- | --- |
+| Behavioral person simulation | Park et al. (2024) built interview-conditioned agents for 1,052 people. On General Social Survey responses, agents achieved 85% of participants' own two-week test–retest accuracy; they also evaluated personality and experimental outcomes. [Paper](https://arxiv.org/abs/2411.10109) | A consented person's interview and history can plausibly condition answers to **specified** new questions. The reported relative score is not 85% absolute accuracy, identity replication, or evidence of reliable prediction in every domain. |
+| Synthetic conversations | Self-Instruct generated and filtered instruction/input/output examples and improved instruction following in its evaluated setting. A study comparing simulated with real human chatbot users found systematic linguistic differences; feature-conditioned prompts reduced average feature error in its setting. [Self-Instruct, 2022](https://arxiv.org/abs/2212.10560); [DiverseDialogue, 2024](https://arxiv.org/abs/2409.00262) | An agent can generate useful task-specific dialogues, but fluent conversation is insufficient evidence of realistic user behavior, diversity, or downstream performance. |
+| Statistical dataset synthesis | NIST's synthetic-data test drive explicitly evaluates utility and privacy together for particular microdata and methods. NIST warns that fully synthetic data can still disclose information. [Test Drive](https://pages.nist.gov/HLG-MOS_Synthetic_Data_Test_Drive/guide.html); [SP 800-188, 2023](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-188.pdf) | A tabular synthesizer must learn and sample task-relevant joint distributions. A retrieval wiki or conversational agent does not itself establish distributional fidelity. |
+
+Park et al. (2023) showed that memory, reflection, and planning improved believability in a 25-agent interactive sandbox. This supports an architecture experiment, **not** person-level predictive validity or disclosure safety. [Paper](https://arxiv.org/abs/2304.03442)
+
+## Proposed controlled experiment (design inference)
+
+1. Choose one product and a narrow intended use before implementation. Document the unit (individual, dialogue, or record), population, output schema, audience, and access mode.
+2. Inventory authorized real sources: owner, consent or license, collection dates, sensitivity, schema, missingness, and known sampling bias. Keep identifiers and raw sensitive records out of Git. Log every source used in conditioning and every generated output's model/version, prompt, parameters, seed, and source lineage.
+3. Lock a real-data test set **before** prompting, tuning, or building the wiki. Group by person, conversation, organization, or household where correlated records would cross splits. Add a later-time holdout when future generalization is the claim. De-duplicate near matches across splits. Never pass test answers to retrieval or generation. If a foundation model may have seen a public benchmark, record that uncertainty and use newly collected/private test cases where possible. The PALOMA benchmark explicitly requires removal of overlapping training and evaluation text. [PALOMA, 2023](https://arxiv.org/abs/2312.10523)
+4. Pre-register baselines and success criteria on the test set. Behavioral: demographic/profile-only and retrieved-history baselines. Conversation: templates and human-authored examples. Tabular: simple resampling or fitted statistical model. Compare cost and latency as well as quality.
+5. Run the generator on development data only; freeze it; evaluate once on held-out real data. Report confidence intervals, sample sizes, per-group results, and failure cases. If tuning follows test inspection, create a new untouched test set.
+6. Conduct privacy review and adversarial tests before any external release. The right threshold depends on sensitivity and audience; no single aggregate quality score substitutes for a release decision.
+
+## Evaluation matrix
+
+| Product | Generalization and utility on held-out real data | Leakage and privacy checks |
+| --- | --- | --- |
+| Behavioral simulation | Predict pre-specified choices or answers on unseen scenarios; compare accuracy and probabilistic calibration with profile and history baselines; measure repeatability and within-person variance; report by domain and subgroup. Where available, compare with the person's own test–retest reliability. | Prompt for hidden interview facts, names, exact passages and sensitive attributes; measure verbatim and semantic similarity to source; test whether outputs reveal facts beyond the permitted profile. |
+| Conversations | Human blind ratings for task validity, coherence, role consistency and realism; topic, intent, length and linguistic-feature coverage against held-out real conversations; train on synthetic, test on real for the actual downstream task (and compare with a real-data baseline). | Search exact and near-duplicate turns against training conversations; attempt targeted extraction with adversarial prompts; inspect rare names, quotations and identifiers. Carlini et al. demonstrated extractable verbatim training text from an LLM in their tested setting. [Paper, 2020](https://arxiv.org/abs/2012.07805) |
+| Statistical records | Compare marginals, missingness, joint and conditional distributions, rare-category support, constraints, and task-specific estimates with uncertainty; train on synthetic and test on untouched real data for the intended model or analysis. Report subgroup utility. | Search exact/near records with a domain-appropriate distance; estimate membership inference advantage using members vs matched nonmembers; test attribute inference or linkage under plausible auxiliary information. NIST's test drive illustrates record matching and its interpretation limits. [Guide](https://pages.nist.gov/HLG-MOS_Synthetic_Data_Test_Drive/guide.html) |
+
+**Privacy interpretation.** Exact-match absence is a useful screening result, not a privacy guarantee. Distance metrics can miss disclosure through combinations of attributes. Membership inference asks whether an attacker can tell if a person was in training; attribute inference asks whether published output helps infer a hidden attribute. Define the attacker's knowledge, access, decision threshold and baseline before measuring success. NIST states that non-differentially-private synthetic methods generally have informal privacy guarantees; differential privacy offers a formal framework but requires scrutiny of the implementation, privacy parameters, composition and data bounds. [NIST SP 800-226, March 2025](https://csrc.nist.gov/pubs/sp/800/226/final); [NIST SP 800-188, September 2023](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-188.pdf)
+
+## What current evidence does not establish
+
+- **Behavioral:** the 2024 agent result measures particular survey and experimental tasks using interview-conditioned participants. It does not validate the proposed corpus, target people, future decisions, or long conversations. The 2023 sandbox assessed believability of agents in a designed environment. [2024 study](https://arxiv.org/abs/2411.10109); [2023 study](https://arxiv.org/abs/2304.03442)
+- **Conversations:** Self-Instruct's downstream improvement is evidence for its instruction-tuning setup, not proof that generated dialogues reproduce a real population. DiverseDialogue's measured feature improvements do not prove that every downstream use improves. [Self-Instruct](https://arxiv.org/abs/2212.10560); [DiverseDialogue](https://arxiv.org/abs/2409.00262)
+- **Privacy:** calling data “synthetic,” omitting direct identifiers, passing a duplicate check, or reporting high utility does not prove anonymity. Even formal differential privacy does not by itself validate utility or an implementation's claimed parameters. [NIST SP 800-188](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-188.pdf); [NIST SP 800-226](https://csrc.nist.gov/pubs/sp/800/226/final)
+- **Generalization:** a held-out row is not independent if the same person or near-duplicate conversation occurs in development data. A fluent answer that restates retrieved facts tests retrieval, not prediction. These are evaluation design inferences, supported by the general contamination problem documented in [PALOMA](https://arxiv.org/abs/2312.10523).
+
+## Decision gates and unanswered questions
+
+**Gate 1 — lawful usable corpus:** What exact real data exists, who owns it, what uses and disclosures are permitted, how many distinct people/conversations/records are there, and what sensitive fields or rare groups exist? A prototype using real data is premature until this is answered.
+
+**Gate 2 — identifiable task:** Is the first deliverable a consenting person's scenario answers, new conversations for a named downstream task, or tabular records for a specified analysis? Who will consume the output and what would count as a material improvement over the baseline?
+
+**Gate 3 — credible test:** Can an independent real test set be reserved by entity and time, with enough observations for per-group estimates? What test leakage through foundation-model pretraining remains unknowable?
+
+**Gate 4 — release:** Is output internal only, shared with partners, or public? What adversary and auxiliary data are plausible? Is a formal differential privacy guarantee required, and can its privacy budget and implementation be reviewed? What utility and privacy thresholds will the data owner accept?
+
+**Recommendation (design inference):** Start with one narrow, authorized dataset and one downstream task. Build the locked real-data evaluation set first. Prototype the simplest baseline and one generator, then decide from held-out utility, error analysis, and disclosure testing whether an “agent” adds value.
